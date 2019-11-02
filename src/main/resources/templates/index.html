@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <link rel="stylesheet" type="text/css" href="font_Icon/iconfont.css">
+    <link rel="stylesheet" type="text/css" href="css/chat copy.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/index.js"></script>
+    <script src="js/microsoft.cognitiveservices.speech.sdk.bundle.js"></script>
+    <script src="js/speech.js"></script>
+</head>
+
+<body>
+
+    <div class="chatContainer">
+        <div class="chatBox" ref="chatBox">
+
+            <div class="chatBox-info">
+                <div class="chatBox-kuang" ref="chatBoxkuang" style="display:block">
+                    <div class="chatBox-content">
+                        <div class="chatBox-content-demo" id="chatBox-content-demo">
+                            <!-- 普通信息 打招呼-->
+                            <div class="clearfloat">
+                                <div class="author-name">
+                                    <small class="chat-date">2017-12-02 14:26:58</small>
+                                </div>
+                                <div class="left">
+                                    <div class="chat-avatars"><img src="img/robot.png" alt="robot" /></div>
+                                    <div class="chat-message projector-yes-no">
+                                        <div>
+                                            <ul>
+                                                <li>
+                                                    <label>你好，我是小T，有什么可以帮助您的？(我现在只能处理预定会议室功能)</label>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--<textarea id="phraseDiv" style="width:500px;height:40px"></textarea>-->
+                    <div class="chatBox-send">
+                        <button id="chat-yuyin" class="btn-default-styles"><i class="iconfont icon-yuyin"></i>
+                        </button>
+                        <button id="chat-wenzi" class="btn-default-styles"><i class="iconfont icon-jianpan"></i>
+                        </button>
+                        <div class="div-textarea" contenteditable="true"></div>
+
+                        <div class="div-yuyin" onclick="change()">点击 说话</div>
+                        <button id="chat-fasong" class="btn-default-styles"><i class="iconfont icon-icon_sent"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="yuyin-block">
+                <textarea id="phraseDiv" ></textarea>
+                <!-- <textarea name="phraseDiv"  id="phraseDiv"></textarea>-->
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        //未读信息数量为空时
+        var totalNum = $(".chat-message-num").html();
+        if (totalNum == "") {
+            $(".chat-message-num").css("padding", 0);
+        }
+        $(".message-num").each(function () {
+            var wdNum = $(this).html();
+            if (wdNum == "") {
+                $(this).css("padding", 0);
+            }
+        });
+        $('input[name=projector]').on('click',function () {
+            alert($(this).attr('id'));
+        })
+        //      发送信息
+        $("#chat-fasong").click(function () {
+            //$('input[name=projector]').prop('disabled',true);
+            $.each($('input[name=projector]'),function (i) {
+                $(this).prop('disabled',true).attr('name','NULL-'+$(this).attr('name')).attr('id','NULL-'+$(this).attr('id'));
+                $(this).next('label').attr('for','NULL-'+$(this).next('label').attr('id'));
+            })
+            $.each($('input[name=meeting-room]'),function (i) {
+                $(this).prop('disabled',true).attr('name','NULL-'+$(this).attr('name')).attr('id','NULL-'+$(this).attr('id'));
+                $(this).next('label').attr('for','NULL-'+$(this).next('label').attr('id'));
+            })
+            var textContent = $(".div-textarea").html().replace(/[\n\r]/g, '<br>')
+            if (textContent != "") {
+                sendMessage(textContent)
+                $(document).ready(function () {
+
+                });
+            }
+        });
+    </script>
+
+</body>
+
+</html>
