@@ -24,13 +24,13 @@ var language = '';
 var voice = '';
 var tokenTime = 0;
 var token;
-function setVal(obj, val) {
-    $(obj).html(val);
-}
 
     function change() {
 
-         var audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+        // If an audio file was specified, use it. Else use the microphone.
+        // Depending on browser security settings, the user may be prompted to allow microphone use. Using continuous recognition allows multiple
+        // phrases to be recognized from a single use authorization.
+        var audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
 
         var speechConfig = SpeechSDK.SpeechConfig.fromSubscription(key, region);
 
@@ -38,40 +38,47 @@ function setVal(obj, val) {
         speechConfig.speechRecognitionLanguage = 'zh-CN';
         reco = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
 
+
+        // Before beginning speech recognition, setup the callbacks to be invoked when an event occurs.
+
+        // The event recognizing signals that an intermediate recognition result is received.
+        // You will receive one or more recognizing events as a speech phrase is recognized, with each containing
+        // more recognized speech. The event will contain the text for the recognition since the last phrase was recognized.
         reco.recognizing = function (s, e) {
             // window.console.log(e);
             var text = e.result.text ;
             $("#phraseDiv").val(text);
-            setVal(".div-textarea", text)
         };
 
+        // The event signals that the service has stopped processing speech.
+        // https://docs.microsoft.com/javascript/api/microsoft-cognitiveservices-speech-sdk/speechrecognitioncanceledeventargs?view=azure-node-latest
+        // This can happen for two broad classes or reasons.
+        // 1. An error is encountered.
+        //    In this case the .errorDetails property will contain a textual representation of the error.
+        // 2. No additional audio is available.
+        //    Caused by the input stream being closed or reaching the end of an audio file.
         reco.canceled = function (s, e) {
             // window.console.log(e);
-            var text = "(cancel) Reason: " + SpeechSDK.CancellationReason[e.reason];
+            text += "(cancel) Reason: " + SpeechSDK.CancellationReason[e.reason];
             if (e.reason === SpeechSDK.CancellationReason.Error) {
                 text += ": " + e.errorDetails;
             }
             text += "\r\n";
             $("#phraseDiv").val(text);
-            setVal(".div-textarea", text)
-            reco.startContinuousRecognitionAsync();
         };
 
-           reco.recognized = function (s, e) {
+        // The event recognized signals that a final recognition result is received.
+        // This is the final event that a phrase has been recognized.
+        // For continuous recognition, you will get one recognized event for each phrase recognized.
+        reco.recognized = function (s, e) {
             // window.console.log(e);
             // Indicates that recognizable speech was not detected, and that recognition is done.
             if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
                 var noMatchDetail = SpeechSDK.NoMatchDetails.fromResult(e.result);
-                var text = "(recognized)  Reason: " + SpeechSDK.ResultReason[e.result.reason] + " NoMatchReason: " + SpeechSDK.NoMatchReason[noMatchDetail.reason] + "\r\n";
+                text += "(recognized)  Reason: " + SpeechSDK.ResultReason[e.result.reason] + " NoMatchReason: " + SpeechSDK.NoMatchReason[noMatchDetail.reason] + "\r\n";
             } else {
-                var text = "(recognized)  Reason: " + SpeechSDK.ResultReason[e.result.reason] + " Text: " + e.result.text + "\r\n";
+                text += "(recognized)  Reason: " + SpeechSDK.ResultReason[e.result.reason] + " Text: " + e.result.text + "\r\n";
             }
-            var value = e.result.text ;
-            $("#phraseDiv").val(value);
-               setVal(".div-textarea", value)
-            sendMessage(value);
-            $("#phraseDiv").val('');
-               setVal(".div-textarea", '')
         };
 
         // Signals that a new session has started with the speech service
@@ -79,18 +86,12 @@ function setVal(obj, val) {
             // window.console.log(e);
             var text = e.sessionId;
             $("#phraseDiv").val("started");
-            $('.div-yuyin').addClass("speaking");
-            setVal(".div-textarea", 'started')
         };
 
         // Signals the end of a session with the speech service.
         reco.sessionStopped = function (s, e) {
             // window.console.log(e);
             var text = "(sessionStopped) SessionId: " + e.sessionId + "\r\n";
-            $("#phraseDiv").val('END');
-            setVal(".div-textarea", 'END')
-            // $('.div-yuyin').removeClass("speaking");
-            reco.startContinuousRecognitionAsync();
         };
 
         // Signals that the speech service has started to detect speech.
@@ -98,36 +99,64 @@ function setVal(obj, val) {
             // window.console.log(e);
             var text = "(speechStartDetected) SessionId: " + e.sessionId + "\r\n";
             $("#phraseDiv").val("started");
-            setVal(".div-textarea", "started")
         };
 
         // Signals that the speech service has detected that speech has stopped.
         reco.speechEndDetected = function (s, e) {
             // window.console.log(e);
             var text = "(speechEndDetected) SessionId: " + e.sessionId + "\r\n";
-            $("#phraseDiv").val('END');
-            setVal(".div-textarea", 'END')
-            // $('.div-yuyin').removeClass("speaking");
         };
 
-       reco.startContinuousRecognitionAsync();
+        // Note: this is how you can process the result directly
+        //       rather then subscribing to the recognized
+        //       event
+        // The continuation below shows how to get the same data from the final result as you'd get from the
+        // events above.
+        reco.recognizeOnceAsync(
+            function (result) {
+                // window.console.log(result);
+                var text = '';
+                switch (result.reason) {
+                    case SpeechSDK.ResultReason.RecognizedSpeech:
+                        text += " Text: " + result.text;
+                        break;
+                    case SpeechSDK.ResultReason.NoMatch:
+                        var noMatchDetail = SpeechSDK.NoMatchDetails.fromResult(result);
+                        text += " NoMatchReason: " + SpeechSDK.NoMatchReason[noMatchDetail.reason];
+                        break;
+                    case SpeechSDK.ResultReason.Canceled:
+                        var cancelDetails = SpeechSDK.CancellationDetails.fromResult(result);
+                        text += " CancellationReason: " + SpeechSDK.CancellationReason[cancelDetails.reason];
+
+                        if (cancelDetails.reason === SpeechSDK.CancellationReason.Error) {
+                            text += ": " + cancelDetails.errorDetails;
+                        }
+                        break;
+                }
+                var value = result.text ;
+                $("#phraseDiv").val(value);
+                sendMessage(value);
+                $("#phraseDiv").val('');
+                $('.div-yuyin').removeClass("speaking");
+                stopSpeech();
+            },
+            function (err) {
+                window.console.log(err);
+
+                var value = $("#phraseDiv").val()+ "ERROR: " + err;
+                $("#phraseDiv").val(value);
+                stopSpeech();
+            });
+
 
     }
 
-function stopSpeech() {
-    if (reco == undefined) {
-        return;
+    function stopSpeech() {
+    if (reco != undefined){
+        reco.close();
     }
-    reco.stopContinuousRecognitionAsync(
-        function () {
-            reco.close();
-            reco = undefined;
-        },
-        function (err) {
-            reco.close();
-            reco = undefined;
-        });
-}
+        reco = undefined;
+    }
 
 function sendMessage(text) {
     createUserText(text);
@@ -173,7 +202,7 @@ function ttsConvertion(region, token, text, language, voice) {
     xhr.setRequestHeader("content-type", "application/ssml+xml");
     xhr.setRequestHeader("Authorization", "Bearer " + token);
     xhr.setRequestHeader("X-Microsoft-OutputFormat", "riff-24khz-16bit-mono-pcm");
-    // xhr.setRequestHeader("User-Agent", "justName");
+    xhr.setRequestHeader("User-Agent", "justName");
     xhr.setRequestHeader("cache-control", "no-cache");
     xhr.responseType = "arraybuffer";
     xhr.onreadystatechange = function () {

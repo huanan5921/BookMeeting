@@ -1,4 +1,4 @@
-package com.obg.bookmeeting.common;/*
+package com.tcl.obg.common;/*
  * 　　　┏┓　　　┏┓
  * 　　┏┛┻━━━┛┻┓
  * 　　┃　　　━　　　┃
@@ -13,9 +13,9 @@ package com.obg.bookmeeting.common;/*
  * Created by 华南 on 2019/10/30.
  */
 
-import com.obg.bookmeeting.vo.LuisResult;
-import com.obg.bookmeeting.vo.MeetingRoom;
-import com.obg.bookmeeting.vo.Message;
+import com.tcl.obg.vo.LuisResult;
+import com.tcl.obg.vo.MeetingRoom;
+import com.tcl.obg.vo.Message;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.http.HttpEntity;

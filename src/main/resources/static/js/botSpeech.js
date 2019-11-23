@@ -43,6 +43,10 @@ function setVal(obj, val) {
             var text = e.result.text ;
             $("#phraseDiv").val(text);
             setVal(".div-textarea", text)
+            setVal(".phraseDiv", text);
+            if (playStatus == true){
+                audio.pause();
+            }
         };
 
         reco.canceled = function (s, e) {
@@ -54,6 +58,7 @@ function setVal(obj, val) {
             text += "\r\n";
             $("#phraseDiv").val(text);
             setVal(".div-textarea", text)
+            setVal(".phraseDiv", text);
             reco.startContinuousRecognitionAsync();
         };
 
@@ -69,9 +74,11 @@ function setVal(obj, val) {
             var value = e.result.text ;
             $("#phraseDiv").val(value);
                setVal(".div-textarea", value)
+               setVal(".phraseDiv", value);
             sendMessage(value);
             $("#phraseDiv").val('');
                setVal(".div-textarea", '')
+               setVal(".phraseDiv", '');
         };
 
         // Signals that a new session has started with the speech service
@@ -130,8 +137,28 @@ function stopSpeech() {
 }
 
 function sendMessage(text) {
-    createUserText(text);
+    if ($.trim(text) == ''){
+        return;
+    }
+    if (isLive==true){
+        createUserText(text);
+    }
     request(text);
+    //发送后清空输入框
+    $(".div-textarea").html("");
+    //聊天框默认最底部
+    $(".chatBox-content").scrollTop($("#chatBox-content-demo")[0].scrollHeight);
+
+}
+
+function sendRoomMessage(id, text) {
+    if ($.trim(text) == ''){
+        return;
+    }
+    if (isLive==true){
+        createUserText(text);
+    }
+    request(id+"="+text);
     //发送后清空输入框
     $(".div-textarea").html("");
     //聊天框默认最底部

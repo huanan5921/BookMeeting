@@ -19,30 +19,9 @@ import com.obg.bookmeeting.service.BookMeetingService;
 import com.obg.bookmeeting.vo.LuisResult;
 import com.obg.bookmeeting.vo.MeetingRoom;
 import com.obg.bookmeeting.vo.Message;
-import net.sf.json.JSON;
-import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.message.BasicNameValuePair;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URI;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
-
-import java.net.URI;
-import java.net.URLDecoder;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -57,9 +36,19 @@ public class BookMeetingServiceImpl implements BookMeetingService {
     public Message bookMeeting(String seesionId, String attrId, String requestText) {
 
         //通过Luis获取意图  实体
-        JSONObject luisResultString = getLuisResult(requestText);
+        JSONObject luisResultString = Util.getLuisResult(requestText);
 
-        LuisResult luisResult = createLuisResult(luisResultString);
+        LuisResult luisResult = Util.createLuisResult(luisResultString);
+        //判断是否已经唤醒机器人 “小智同学”
+        Message msg = Util.checkWakeUp(seesionId, luisResult);
+        if (msg != null){
+            return msg;
+        }
+        //判断是不是打招呼意图
+        msg = Util.checkSayHello(seesionId, luisResult);
+        if (msg != null){
+            return msg;
+        }
         //根据响应详细首先判断是否需要走Luis，如果是判断，或者一个数字并且对应一个数字的属性就不需要
         Message message = new Message();
         Object o = Kb.sessions.get(seesionId);
@@ -111,6 +100,7 @@ public class BookMeetingServiceImpl implements BookMeetingService {
                 if (requestText != null && !"".equals(requestText.trim()) && Kb.meetingRooms.contains(requestText)){
                     meetingRoom.setAddress(requestText);
                     if (isFullMeetingPara(meetingRoom)){
+                        //移除session
                         Kb.sessions.remove(seesionId);
                     }
                     message = getResponseMessage(seesionId, meetingRoom);
@@ -185,7 +175,7 @@ public class BookMeetingServiceImpl implements BookMeetingService {
                 if (topScore >= Kb.intentScore ){
                     //意图有效
                     String intent = (String)topIntent.get("intent");
-                    if ("bookMeeting".equals(intent)){
+                    if (Kb.bookMeetingIntent.equals(intent)){
                         //确认是预定会议室流程
                         meetingRoom = new MeetingRoom();
                         //获取实体参数
@@ -195,13 +185,13 @@ public class BookMeetingServiceImpl implements BookMeetingService {
                         message = getResponseMessage(seesionId, meetingRoom);
                         return message;
                     }else {
-                        responseText = Kb.smallTalk.get(r.nextInt(100)%4);
+                        responseText = Kb.smallTalk.get(r.nextInt(100)%Kb.smallTalk.size());
                     }
                 }else {
-                    responseText = Kb.smallTalk.get(r.nextInt(100)%4);
+                    responseText = Kb.smallTalk.get(r.nextInt(100)%Kb.smallTalk.size());
                 }
             }else {
-                responseText = Kb.smallTalk.get(r.nextInt(100)%4);
+                responseText = Kb.smallTalk.get(r.nextInt(100)%Kb.smallTalk.size());
             }
             message.setSeesionId(seesionId);
             message.setType("1");
@@ -276,7 +266,7 @@ public class BookMeetingServiceImpl implements BookMeetingService {
                         response.setAttrId(attrId);
                         response.setResponseText(text);
                         HashMap<String, Object> map = getFullMeetingPara(meetingRoom);
-                        map.put("meetingRooms", Kb.meetingRooms);
+                        map.put("meetingRooms.txt", Kb.meetingRooms);
                         response.setData(map);
                     }else {
                         //参数完整，直接返回
@@ -317,19 +307,19 @@ public class BookMeetingServiceImpl implements BookMeetingService {
         for (int i=0; i<entities.size(); i++){
             Map<String, Object> map = entities.get(i);
             if ("meetingDate".equals(map.get("type").toString())){
-                if (checkEntity(map)){
+                if (Util.checkEntity(map)){
                     meetingDate.add(map);
                 }
             }else if ("meetingTime".equals(map.get("type").toString())){
-                if (checkEntity(map)){
+                if (Util.checkEntity(map)){
                     meetingTime.add(map);
                 }
             }else if ("meetingDuringTime".equals(map.get("type").toString())){
-                if (checkEntity(map)){
+                if (Util.checkEntity(map)){
                     meetingDuringTime.add(map);
                 }
             }else if ("personNum".equals(map.get("type").toString())){
-                if (checkEntity(map)){
+                if (Util.checkEntity(map)){
                     personNum.add(map);
                 }
             }
@@ -346,7 +336,7 @@ public class BookMeetingServiceImpl implements BookMeetingService {
         }
         //判断是否有 “时间” 参数  : meetingTime
         if (meetingTime.size() > 0){
-            Map meetingTimePara = getMeetingTime(meetingTime);
+            Map meetingTimePara = Util.getMeetingTime(meetingTime);
             //标准时间字符串
             String time = (String) meetingTimePara.get("time");
             String startTime = (String) meetingTimePara.get("startTime");
@@ -455,198 +445,6 @@ public class BookMeetingServiceImpl implements BookMeetingService {
             String s = value.substring(start, end - start + 1);
             return Integer.valueOf(s);
         }
-    }
-
-    /**
-     * 从多个实体中提取会议时间
-     * @param meetingTime
-     * @return
-     */
-    private Map getMeetingTime(List<Map<String, Object>> meetingTime) {
-
-        ArrayList<Map<String, Object>> mapList = new ArrayList<>();
-        HashMap<String, String> result = new HashMap<>();
-        //从叠加的时间筛选正确的时间，eg：十一点   一点
-        if (meetingTime.size()>0){
-            mapList.add(meetingTime.get(0));
-            for (int i= 1; i<meetingTime.size(); i++){
-                Map<String, Object> m = meetingTime.get(i);
-                for (int j=0; j<mapList.size(); j++){
-                    Map<String, Object> sm = mapList.get(j);
-                    Integer m_startIndex = (Integer) m.get("startIndex");
-                    Integer m_endIndex = (Integer) m.get("endIndex");
-                    Integer sm_startIndex = (Integer) sm.get("startIndex");
-                    Integer sm_endIndex = (Integer) sm.get("endIndex");
-                    if (m_startIndex == sm_startIndex || m_endIndex == sm_endIndex){
-                        //有相同时间，进行合并
-                        if (m_startIndex == sm_startIndex && m_endIndex > sm_endIndex){
-                            mapList.remove(j);
-                            mapList.add(j, m);
-                        }else if (m_startIndex < sm_startIndex && m_endIndex == sm_endIndex){
-                            mapList.remove(j);
-                            mapList.add(j, m);
-                        }
-                        m = null;
-                        break;
-                    }
-                }
-                if (m != null){
-                    mapList.add(m);
-                }
-            }
-        }
-        //从mapList中选择正确的时间或世家区间
-        int size = mapList.size();
-        if (size > 0){
-            if (size == 1){
-                result.put("time", (String) mapList.get(0).get("resolution"));
-            }else if (size >= 2){
-                Integer startIndex_0 = (Integer) mapList.get(0).get("startIndex");
-                Integer startIndex_1 = (Integer) mapList.get(1).get("startIndex");
-                if (startIndex_0 < startIndex_1){
-                    result.put("startTime", (String) mapList.get(0).get("resolution"));
-                    result.put("endTime", (String) mapList.get(1).get("resolution"));
-                }else {
-                    result.put("startTime", (String) mapList.get(1).get("resolution"));
-                    result.put("endTime", (String) mapList.get(0).get("resolution"));
-                }
-            }
-        }
-        return result;
-    }
-
-    private boolean checkEntity(Map<String, Object> map) {
-        Object o = map.get("score");
-        if (o != null){
-            int score = (int)((Double)o*100) ;
-            if (score  >= Kb.entityScore){
-                return true;
-            }
-        }else if (map.get("resolution") != null){
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 将返回的json参数组装成LuisResult对象
-     * @param data
-     * @return
-     */
-    public LuisResult createLuisResult(JSONObject data){
-
-        if (data == null){
-            return null;
-        }
-
-        LuisResult luisResult = new LuisResult();
-        //查询参数
-        luisResult.setQuery(data.getString("query"));
-
-        //topIntent
-        JSONObject topScoringIntent = (JSONObject)data.get("topScoringIntent");
-        HashMap<String, Object> topIntent = new HashMap<>();
-        topIntent.put("intent", topScoringIntent.get("intent"));
-        topIntent.put("score", topScoringIntent.get("score"));
-        luisResult.setTopIntent(topIntent);
-
-        //intents
-        JSONArray intentsArray = (JSONArray)data.get("intents");
-        List<Map<String, Object>> intents = new ArrayList<>();
-        if (intentsArray.size() > 0){
-            for (int i=0; i<intentsArray.size(); i++){
-                JSONObject intent = (JSONObject) intentsArray.get(i);
-                HashMap<String, Object> map = new HashMap<>();
-                map.put("intent", intent.get("intent"));
-                map.put("score", intent.get("score"));
-                intents.add(map);
-            }
-        }
-        luisResult.setIntents(intents);
-
-        //intents
-        JSONArray entityArray = (JSONArray)data.get("entities");
-        List<Map<String, Object>> entities = new ArrayList<>();
-        if (entityArray.size() > 0){
-            for (int i=0; i<entityArray.size(); i++){
-                JSONObject entity = (JSONObject) entityArray.get(i);
-                HashMap<String, Object> map = new HashMap<>();
-                map.put("entity", entity.get("entity"));
-                map.put("type", entity.get("type"));
-                map.put("startIndex", entity.get("startIndex"));
-                map.put("endIndex", entity.get("endIndex"));
-                map.put("score", entity.get("score"));
-                JSONObject resolution = (JSONObject)entity.get("resolution");
-                if (resolution != null){
-                    JSONArray value = (JSONArray)resolution.get("values");
-                    if (value != null){
-                        map.put("resolution", value.get(0));
-                    }
-                }
-                entities.add(map);
-            }
-        }
-        luisResult.setEntitys(entities);
-        return luisResult;
-    }
-
-    public JSONObject getLuisResult(String text) {
-        HttpClient httpclient = HttpClients.createDefault();
-
-        try {
-            String url = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/" + Kb.appId;
-            ArrayList<NameValuePair> parame = new ArrayList<>();
-            parame.add(new BasicNameValuePair("timezoneOffset", "0"));
-            parame.add(new BasicNameValuePair("verbose", "true"));
-            parame.add(new BasicNameValuePair("subscription-key", Kb.subKey));
-            parame.add(new BasicNameValuePair("q", text));
-            UrlEncodedFormEntity formEntity = new UrlEncodedFormEntity(parame, "utf-8");
-            InputStream inputStream = formEntity.getContent();
-            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, "utf-8");
-            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-            String readLine = bufferedReader.readLine();
-            String parameStr = URLDecoder.decode(readLine, "utf-8");
-            System.out.println("readLine============="+readLine);
-            System.out.println("paramStr============="+parameStr);
-            StringBuilder sb = new StringBuilder();
-            sb.append(url);
-            sb.append("?");
-            sb.append(readLine);
-            System.out.println("url=================="+sb.toString());
-            HttpGet request = new HttpGet(sb.toString());
-
-//            URIBuilder builder = new URIBuilder("https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/" + Kb.appId+"?q="+text);
-//
-//            builder.setParameter("timezoneOffset", "0");
-//            builder.setParameter("verbose", "true");
-//
-//
-////            builder.setParameter("spellCheck", "{boolean}");
-////            builder.setParameter("staging", "{boolean}");
-////            builder.setParameter("log", "{boolean}");
-//
-//            URI uri = builder.build();
-//            HttpGet request = new HttpGet(uri);
-////            request.setHeader("Content-Type", "application/json");
-//            request.setHeader("Ocp-Apim-Subscription-Key", Kb.subKey);
-//
-//
-//            // Request body
-////            StringEntity reqEntity = new StringEntity(text);
-////            request.setEntity(reqEntity);
-
-            HttpResponse response = httpclient.execute(request);
-            HttpEntity entity = response.getEntity();
-
-            if (entity != null) {
-                String result = EntityUtils.toString(entity);
-                JSONObject data = JSONObject.fromObject(result);
-                return data;
-            }
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-        return null;
     }
 
 }

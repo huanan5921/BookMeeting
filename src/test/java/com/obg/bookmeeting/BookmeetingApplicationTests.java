@@ -1,7 +1,10 @@
 package com.obg.bookmeeting;
 
+import com.obg.bookmeeting.common.LuisServer;
 import com.obg.bookmeeting.common.Util;
 import com.obg.bookmeeting.service.BookMeetingService;
+import com.obg.bookmeeting.service.BotService;
+import com.obg.bookmeeting.vo.LuisResult;
 import com.obg.bookmeeting.vo.MeetingRoom;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,13 +17,18 @@ import org.springframework.test.context.junit4.SpringRunner;
 public class BookmeetingApplicationTests {
 
 	@Autowired
-	BookMeetingService bookMeetingService;
+    BookMeetingService bookMeetingService;
+
+    @Autowired
+    BotService botService;
 
 	@Test
 	public void contextLoads() {
-
-
-	}
+        LuisResult luisResult = LuisServer.getLuisResponse("我先顶一个会议室，星期二上午9点到7点");
+        MeetingRoom meetingRoom = new MeetingRoom();
+        botService.updataMeetingRoomPatameters(luisResult, meetingRoom);
+        System.out.println(meetingRoom.toString());
+    }
 
 	@Test
 	public void testGetLuisResult(){

@@ -1,4 +1,4 @@
-package com.obg.bookmeeting.vo;/*
+package com.tcl.obg.vo;/*
  * 　　　┏┓　　　┏┓
  * 　　┏┛┻━━━┛┻┓
  * 　　┃　　　━　　　┃

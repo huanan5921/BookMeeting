@@ -127,7 +127,7 @@
 }
 
 .clearfloat .chat-message{
-    max-width: 252px;
+    max-width: 352px;
     text-align: left;
     padding: 8px 12px;
     border-radius: 6px;
@@ -410,7 +410,7 @@ ul{
 }
 #yuyin-block{
     position: absolute;
-    bottom: 65px;
+    bottom: 55px;
     left: 0;
     right: 0;
     z-index: 9999;
